@@ -4,13 +4,13 @@
 // Your data is protected by the database rules in firebase/database.rules.json, not by hiding this key.
 window.ILL_CONFIG = {
   firebase: {
-    apiKey: 'PASTE_API_KEY_HERE',
-    authDomain: 'PASTE_AUTH_DOMAIN_HERE',          // usually kaifun-wall.firebaseapp.com
+    apiKey: 'AIzaSyAXEDOzOAz9QBPQSjhOCVgtJ6VllSh9B_A',
+    authDomain: 'kaifun-wall.firebaseapp.com',
     databaseURL: 'https://kaifun-wall-default-rtdb.firebaseio.com',
-    projectId: 'PASTE_PROJECT_ID_HERE',            // usually kaifun-wall
-    storageBucket: 'PASTE_STORAGE_BUCKET_HERE',
-    messagingSenderId: 'PASTE_SENDER_ID_HERE',
-    appId: 'PASTE_APP_ID_HERE'
+    projectId: 'kaifun-wall',
+    storageBucket: 'kaifun-wall.firebasestorage.app',
+    messagingSenderId: '443917138607',
+    appId: '1:443917138607:web:9b5327e8f19be8a1b0f25a'
   },
   firebaseSdk: '10.12.2',      // pinned Firebase JS SDK version (compat build from gstatic)
   packEveryMs: 600000,         // 1 free pack every 10 minutes (must match tools/build_rules.py)
