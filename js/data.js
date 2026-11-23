@@ -4,12 +4,12 @@
   // Rarity comes from the level's place on the ILL: the higher (harder), the rarer.
   // upTo = last ILL rank in the tier. weight = chance per card slot (out of 100).
   const RARITIES = [
-    { key: 'mythic',    name: 'Mythic',    upTo: 10,       weight: 0.3, dust: 400, craft: 3200, color: '#ff2f6d' },
-    { key: 'legendary', name: 'Legendary', upTo: 50,       weight: 1.5, dust: 150, craft: 1200, color: '#ffb52e' },
-    { key: 'epic',      name: 'Epic',      upTo: 150,      weight: 5.2, dust: 60,  craft: 500,  color: '#b65cff' },
-    { key: 'rare',      name: 'Rare',      upTo: 400,      weight: 13,  dust: 25,  craft: 200,  color: '#3a9bff' },
+    { key: 'mythic',    name: 'Mythic',    upTo: 10,       weight: 0.05, dust: 400, craft: 3200, color: '#ff2f6d' },
+    { key: 'legendary', name: 'Legendary', upTo: 50,       weight: 0.35, dust: 150, craft: 1200, color: '#ffb52e' },
+    { key: 'epic',      name: 'Epic',      upTo: 150,      weight: 1.6, dust: 60,  craft: 500,  color: '#b65cff' },
+    { key: 'rare',      name: 'Rare',      upTo: 400,      weight: 5,  dust: 25,  craft: 200,  color: '#3a9bff' },
     { key: 'uncommon',  name: 'Uncommon',  upTo: 900,      weight: 28,  dust: 10,  craft: 80,   color: '#33e08a' },
-    { key: 'common',    name: 'Common',    upTo: Infinity, weight: 52,  dust: 5,   craft: 40,   color: '#97a3bd' }
+    { key: 'common',    name: 'Common',    upTo: Infinity, weight: 65,  dust: 5,   craft: 40,   color: '#97a3bd' }
   ];
   const HOLO_CHANCE = 0.04;      // 4% of cards come out holographic
   const HOLO_DUST = 4;           // a holo copy is worth 4x dust
@@ -47,10 +47,10 @@
     return { id: lv.id, holo: rand() < HOLO_CHANCE };
   };
 
-  // A pack: 5 cards, the last one is always Rare or better.
+  // A pack: 5 cards, the last one is always Uncommon or better.
   D.rollPack = function (rand, size) {
     const out = [];
-    for (let i = 0; i < size; i++) out.push(D.roll(rand, i === size - 1 ? 3 : RARITIES.length - 1));
+    for (let i = 0; i < size; i++) out.push(D.roll(rand, i === size - 1 ? 4 : RARITIES.length - 1));
     return out;
   };
 

@@ -64,7 +64,7 @@
         h('li', 'Geometry Dash is made by RobTop Games. This site is not affiliated with RobTop Games or the ILL team.'),
         h('li', 'Made by ', h('a', { href: 'https://kaifun.fun', target: '_blank', rel: 'noopener' }, 'Kai.fun'), '. Logo, icons and card designs are drawn in code.')),
       h('h2', 'How packs work'),
-      h('p', 'Packs are always free. You get 1 pack every 10 minutes and up to 10 wait for you. Each pack has 5 cards and the last card is always Rare or better. About 1 in 25 cards is a shiny holo.'),
+      h('p', 'Packs are always free. You get 1 pack every 10 minutes and up to 10 wait for you. Each pack has 5 cards and the last card is always Uncommon or better. About 1 in 25 cards is a shiny holo.'),
       h('div.table-wrap', h('table.odds', h('thead', h('tr', ['Rarity', 'ILL place', 'Cards', 'Chance per card', 'Dust', 'Craft cost'].map((t) => h('th', t)))), h('tbody', odds))),
       h('h2', 'Safe and fair'),
       h('p', 'There is nothing to buy, no ads and no real money anywhere. Sign-in is only used to save your cards; the leaderboard shows only the nickname you pick.')));
