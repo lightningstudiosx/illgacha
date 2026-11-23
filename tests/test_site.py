@@ -1,9 +1,11 @@
 """Browser tests for ILL Gacha in demo mode (Python Playwright).   python -I tests/test_site.py
 Starts a local static server, runs Chromium headless, saves screenshots to shots/ and finally replays every
 write the site made through the real database rules (tests/rules_db.py) to prove the rules would accept them.
+?demo&admin pretends the demo player is the admin, so the admin panel is tested here too (its writes are replayed
+with the admin's verified-email token, and must be refused without it).
 YouTube thumbnails and Google Fonts are fetched for real when online; if offline they are faked, so no errors.
 """
-import functools, hashlib, json, re, sys, tempfile, threading, unittest
+import copy, functools, hashlib, json, re, sys, tempfile, threading, unittest
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 HERE = Path(__file__).resolve().parent; ROOT = HERE.parent
@@ -17,7 +19,7 @@ TEST_CODE = 'demo-test-3'          # the plaintext of the test-only hash in js/c
 T0 = '2026-11-22T12:00:00Z'
 PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
                     '1f15c4890000000d49444154789c6360f8cfc0f01f0005fe02fea7d6a4c40000000049454e44ae426082')
-WRITES = []
+SEGMENTS = []          # one per page load: {seed: demo database at load, writes: [...]}
 
 
 class Quiet(SimpleHTTPRequestHandler):
@@ -28,14 +30,17 @@ class Quiet(SimpleHTTPRequestHandler):
 def external(route):
     """Real thumbnails/fonts when online, harmless stand-ins when offline. Anything else external is blocked."""
     url = route.request.url
-    if 'i.ytimg.com' in url or 'fonts.googleapis.com' in url or 'fonts.gstatic.com' in url:
-        try:
-            resp = route.fetch(timeout=5000)
-            if resp.ok: return route.fulfill(response=resp)
-        except Exception: pass
-        if 'ytimg' in url: return route.fulfill(status=200, content_type='image/png', body=PNG)
-        return route.fulfill(status=200, content_type='text/css', body='')
-    return route.abort()
+    try:   # (a page/context may close while a thumbnail is still loading - then the route is already gone)
+        if 'i.ytimg.com' in url or 'fonts.googleapis.com' in url or 'fonts.gstatic.com' in url:
+            try:
+                resp = route.fetch(timeout=5000)
+                if resp.ok: return route.fulfill(response=resp)
+            except Exception: pass
+            if 'ytimg' in url: return route.fulfill(status=200, content_type='image/png', body=PNG)
+            return route.fulfill(status=200, content_type='text/css', body='')
+        return route.abort()
+    except Exception:
+        pass
 
 
 class Site(unittest.TestCase):
@@ -55,7 +60,7 @@ class Site(unittest.TestCase):
     def setUp(self):
         self.errors = []
 
-    def open(self, hashpath='', phone=False, seeded=False):
+    def open(self, hashpath='', phone=False, seeded=False, query='demo'):
         ctx = self.browser.new_context(viewport={'width': 390, 'height': 844} if phone else {'width': 1440, 'height': 900},
                                        device_scale_factor=2 if phone else 1, is_mobile=phone, has_touch=phone)
         ctx.route(re.compile(r'^https?://(?!127\.0\.0\.1)'), external)
@@ -67,13 +72,19 @@ class Site(unittest.TestCase):
         page.clock.install(time=T0)
         page.on('console', lambda m: m.type == 'error' and self.errors.append(m.text))
         page.on('pageerror', lambda e: self.errors.append(str(e)))
-        page.goto(self.base + '?demo#/' + hashpath)
-        page.wait_for_selector('#view section')
+        page.goto(self.base + '?' + query + '#/' + hashpath)
+        try: page.wait_for_selector('#view section', timeout=120000)
+        except Exception:
+            ctx.close(); raise AssertionError('page never rendered; errors: %r' % self.errors)
         self.addCleanup(lambda: self.collect(page, ctx))
         return page
 
+    def grab(self, page):
+        """Keep this page load's writes (call before anything that reloads the page)."""
+        SEGMENTS.append(page.evaluate('({ seed: window.__illSeed, writes: window.__illWrites || [] })'))
+
     def collect(self, page, ctx):
-        try: WRITES.extend(page.evaluate('window.__illWrites || []'))
+        try: self.grab(page)
         finally: ctx.close()
         self.assertEqual(self.errors, [], 'console errors')
 
@@ -244,24 +255,234 @@ class Site(unittest.TestCase):
         self.assertEqual(errs, [])
 
     def test_9_rules_accept_every_write(self):
-        """Every multi-path write the site made in the tests above must pass the real rules."""
-        self.assertGreater(len(WRITES), 40)
+        """Every multi-path write the site made in the tests above (players AND admin) must pass the real rules."""
+        writes = [w for seg in SEGMENTS for w in seg['writes']]
+        self.assertGreater(len(writes), 60)
+        self.assertGreaterEqual(sum(1 for w in writes if any(k.startswith('adminlog/') for k in w['patch'])), 15)
         codes = [{'hash': hashlib.sha256(('illgacha:' + TEST_CODE.upper()).encode()).hexdigest(), 'packs': 3}]
         f = Path(tempfile.mkdtemp()) / 'rules.json'; f.write_text(json.dumps(build_rules.merged(codes)))
-        uids = sorted(set(w['uid'] for w in WRITES))
-        self.assertEqual(uids, ['demoPlayer01'])
-        # each browser context started a fresh demo player, so replay each run separately
-        runs, cur = [], []
-        for w in WRITES:
-            if cur and any(k.endswith('/profile') for k in w['patch']): runs.append(cur); cur = []
-            cur.append(w)
-        runs.append(cur)
-        for run in runs:
-            db = RulesDB(f)
-            for w in run:
-                ok, why = db.update('illgacha', w['patch'], {'uid': w['uid']}, w['now'])
+        self.assertEqual(sorted(set(w['uid'] for w in writes)), ['demoPlayer01'])
+        admin = lambda uid: {'uid': uid, 'token': {'email': build_rules.ADMIN_EMAIL, 'email_verified': True}}
+        for seg in SEGMENTS:        # each page load starts from the demo database it loaded
+            db = RulesDB(f); db.root = {'illgacha': seg['seed']} if seg['seed'] else {}
+            for w in seg['writes']:
+                auth = admin(w['uid']) if w.get('admin') else {'uid': w['uid']}
+                if any(k.startswith('adminlog/') for k in w['patch']):   # an admin action: the same write as a plain player is refused
+                    probe = RulesDB(f); probe.root = copy.deepcopy(db.root)
+                    bare = {k: v for k, v in w['patch'].items() if not k.startswith('adminlog/')}
+                    self.assertFalse(probe.update('illgacha', bare, {'uid': w['uid']}, w['now'])[0], 'works without admin: %s' % sorted(bare)[:3])
+                ok, why = db.update('illgacha', w['patch'], auth, w['now'])
                 self.assertTrue(ok, '%s refused: %s' % (sorted(w['patch'])[:4], why))
 
+    # ------------------------------------------------------------------ admin panel (demo: ?demo&admin)
+    def il(self, page):
+        return page.evaluate("JSON.parse(localStorage.getItem('illgacha.demo.v1')).illgacha")
+
+    def wait_il(self, page, js):
+        """Wait until a condition on the saved demo database (as `il`) is true."""
+        page.wait_for_function('() => { const il = JSON.parse(localStorage.getItem("illgacha.demo.v1")).illgacha; return %s; }' % js, polling=100)
+
+    def test_7a_normal_player_has_no_admin(self):
+        page = self.open()
+        expect(page.locator('nav.main-nav a[data-route=admin]')).to_be_hidden()
+        expect(page.locator('nav.tabs a[data-route=admin]')).to_have_attribute('hidden', '')
+        self.assertFalse(page.evaluate('ILL.admin.is()'))
+        page.goto(self.base + '?demo#/admin')
+        expect(page.locator('.admin-denied')).to_contain_text('Admin only')
+        expect(page.locator('.admin-denied')).to_contain_text('doesn’t have admin access')
+        expect(page.locator('#admBody')).to_have_count(0)
+        expect(page.locator('nav.main-nav a[data-route=admin]')).to_be_hidden()
+
+    def test_7b_admin_panel(self):
+        page = self.open('admin', query='demo&admin')
+        expect(page.locator('nav.main-nav a[data-route=admin]')).to_be_visible()
+        expect(page.locator('#admStatPlayers')).to_have_text('16')           # 15 demo bots + you
+        expect(page.locator('.adm-mini li')).to_have_count(18)
+        page.wait_for_timeout(500); page.screenshot(path=str(SHOTS / 'admin-overview.png'))
+
+        # players: list, search, open one
+        page.click('.adm-tabs a[data-tab=players]')
+        rows = page.locator('#admPlayerRows a.adm-row')
+        expect(rows).to_have_count(16)
+        page.fill('#admSearch', 'spider'); expect(rows).to_have_count(1)
+        page.fill('#admSearch', 'bot0003'); expect(rows).to_have_count(1); expect(rows.first).to_contain_text('OrbHopper')
+        page.fill('#admSearch', ''); expect(rows).to_have_count(16)
+        page.select_option('#admSort', 'owned'); expect(rows.first).to_contain_text('NeonWaveKid')
+        page.wait_for_timeout(300); page.screenshot(path=str(SHOTS / 'admin-players.png'))
+        page.click('a.adm-row[data-uid=bot0001xx]')
+        expect(page.locator('#admPlayerName')).to_have_text('SpiderSam')
+        bot = lambda: self.il(page)['users']['bot0001xx']
+
+        # give packs (and the 100 cap)
+        page.fill('#admPacks', '4'); page.click('#admGivePacks')
+        expect(page.locator('#admPExtra')).to_have_text('4')
+        self.assertEqual((bot()['packs']['extra'], bot()['packs']['granted']), (4, 4))
+        page.fill('#admPacks', '97'); page.click('#admGivePacks')
+        expect(page.locator('#toast')).to_contain_text('100 is the most')
+        self.assertEqual(bot()['packs']['extra'], 4)
+
+        # give a holo card by name
+        tax = page.evaluate('ILL.data.levels.find((l) => l.name === "Tax Evasion").id')
+        page.fill('#admCardSearch', 'Tax Evasion')
+        page.click('#admCardResults .adm-result[data-id="%s"]' % tax)
+        expect(page.locator('#admCardChosen')).to_contain_text('Tax Evasion')
+        page.check('#admCardHolo'); page.click('#admGiveCard')
+        expect(page.locator('#admPGifted')).to_have_text('1')
+        b = bot()
+        self.assertEqual((b['cards'][tax]['n'], b['cards'][tax]['holo']), (1, 1))
+        self.assertEqual(b['stats']['gifted'], 1)
+        lb = self.il(page)['leaderboard']['bot0001xx']
+        self.assertEqual(lb['owned'], len(b['cards'])); self.assertEqual(lb['holo'], sum(1 for c in b['cards'].values() if c['holo'] > 0))
+        # and by rank
+        page.fill('#admCardSearch', '#5'); page.click('#admCardResults .adm-result >> nth=0')
+        expect(page.locator('#admCardChosen')).to_contain_text('#5 ')
+        page.uncheck('#admCardHolo'); page.click('#admGiveCard')
+        expect(page.locator('#admPGifted')).to_have_text('2')
+        self.assertEqual(bot()['stats']['bestRank'], 5)
+        page.evaluate('window.scrollTo(0, 0)'); page.wait_for_timeout(400)
+        page.screenshot(path=str(SHOTS / 'admin-player.png'), full_page=True)
+
+        # ban (confirm dialog) and unban
+        page.fill('#admBanReason', 'testing bans'); page.click('#admBan'); page.click('#admConfirmYes')
+        expect(page.locator('#admBannedBadge')).to_contain_text('testing bans')
+        il = self.il(page)
+        self.assertEqual(il['bans']['bot0001xx']['reason'], 'testing bans')
+        self.assertNotIn('bot0001xx', il['leaderboard'])
+        page.click('#admUnban'); expect(page.locator('#admBan')).to_be_visible()
+        self.assertNotIn('bot0001xx', self.il(page).get('bans', {}))
+
+        # remove a leaderboard row, then reset (cancel first)
+        page.goto(self.base + '?demo&admin#/admin/player/bot0002xx'); expect(page.locator('#admPlayerName')).to_have_text('ShipLord')
+        page.click('#admRemoveBoard'); page.click('#admConfirmYes')
+        self.wait_il(page, '!il.leaderboard.bot0002xx')
+        expect(page.locator('#admRemoveBoard')).to_be_disabled()
+        page.click('#admReset'); page.click('#admConfirmNo')
+        expect(page.locator('.modal')).to_have_count(0)
+        self.assertIn('bot0002xx', self.il(page)['users'])
+        page.click('#admReset'); expect(page.locator('.modal')).to_contain_text('cannot be undone'); page.click('#admConfirmYes')
+        self.wait_il(page, '!il.users.bot0002xx')
+        expect(page.locator('#admPlayerRows a.adm-row')).to_have_count(15)          # back on the list, one fewer
+
+        # codes: too short, generated, listed, hashed
+        page.click('.adm-tabs a[data-tab=codes]')
+        page.fill('#admCode', 'abc123'); page.click('#admCodeCreate')
+        expect(page.locator('#admCodeHint')).to_contain_text('at least 8')
+        self.assertNotIn('codes', self.il(page))
+        page.click('#admGen'); code = page.input_value('#admCode')
+        self.assertRegex(code, r'^ILL-[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){3}$')
+        expect(page.locator('#admCodeHint')).to_have_text('Good length.')
+        page.select_option('#admCodePacks', '5'); page.fill('#admCodeMax', '1'); page.fill('#admCodeLabel', 'Test video')
+        page.click('#admCodeCreate')
+        expect(page.locator('#admMadeCode')).to_have_text(code)
+        h1 = hashlib.sha256(('illgacha:' + code.upper()).encode()).hexdigest()
+        c = self.il(page)['codes'][h1]
+        self.assertEqual((c['packs'], c['maxUses'], c['uses'], c['expires'], c['label']), (5, 1, 0, 0, 'Test video'))
+        self.assertNotIn(code, json.dumps(self.il(page)))                       # only the fingerprint is saved
+        expect(page.locator('#admCodeList .adm-code')).to_have_count(1)
+        page.click('#admGen'); code2 = page.input_value('#admCode')
+        soon = page.evaluate('(() => { const d = new Date(Date.now() + 3600e3); d.setSeconds(0, 0); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })()')
+        page.fill('#admCodeExp', soon); page.fill('#admCodeLabel', 'One hour only'); page.click('#admCodeCreate')
+        expect(page.locator('#admMadeCode')).to_have_text(code2)
+        expect(page.locator('#admCodeList .adm-code')).to_have_count(2)
+        page.fill('#admCode', 'SHORTISH9'); page.dispatch_event('#admCode', 'input')
+        expect(page.locator('#admCodeHint')).to_contain_text('short codes can be guessed')
+        page.fill('#admCode', '')
+        page.evaluate('window.scrollTo(0, 0)'); page.wait_for_timeout(400)
+        page.screenshot(path=str(SHOTS / 'admin-codes.png'), full_page=True)
+
+        # ...and a player redeems them on the home page
+        page.goto(self.base + '?demo&admin#/'); page.wait_for_selector('#codeInput')
+        page.fill('#codeInput', code.lower()); page.click('.code-row button')
+        expect(page.locator('#codeMsg')).to_have_text('+5 bonus packs!')
+        expect(page.locator('#packCount b')).to_have_text('15')
+        page.fill('#codeInput', code); page.click('.code-row button')
+        expect(page.locator('#codeMsg')).to_have_text('You already used that code.')
+        c = self.il(page)['codes'][h1]
+        self.assertEqual(c['uses'], 1); self.assertIn('demoPlayer01', c['by'])
+        page.clock.fast_forward('02:00:00')
+        page.fill('#codeInput', code2); page.click('.code-row button')
+        expect(page.locator('#codeMsg')).to_have_text('That code has expired.')
+
+        # announcement + free pack for everyone
+        page.goto(self.base + '?demo&admin#/admin/site'); page.wait_for_selector('#admAnnText')
+        page.fill('#admAnnText', 'Double holo weekend! New codes in tonight’s video.')
+        page.click('.swatch[data-color="#ffb52e"]')
+        expect(page.locator('#admAnnPreview')).to_contain_text('Double holo weekend!')
+        page.click('#admAnnSet')
+        expect(page.locator('#announceBanner')).to_contain_text('Double holo weekend!')
+        self.assertEqual(self.il(page)['announce']['color'], '#ffb52e')
+        page.select_option('#admFreePacks', '2'); page.click('#admFreeStart')
+        expect(page.locator('#admFreeStatus')).to_contain_text('Running')
+        expect(page.locator('#giftBanner')).to_contain_text('2 bonus packs')
+        page.wait_for_timeout(400); page.screenshot(path=str(SHOTS / 'admin-site.png'), full_page=True)
+        extra = self.doc(page)['packs']['extra']
+        page.click('#claimGift')
+        expect(page.locator('#giftBanner')).to_have_count(0)
+        self.assertEqual((self.doc(page)['packs']['extra'], self.doc(page)['packs']['freeId']), (extra + 2, 1))
+        page.goto(self.base + '?demo&admin#/collection'); expect(page.locator('#announceBanner')).to_be_visible()
+        page.click('#announceBanner .banner-x'); expect(page.locator('#announceBanner')).to_have_count(0)   # players can hide it
+        page.goto(self.base + '?demo&admin#/admin/site')
+        expect(page.locator('#admFreeStatus')).to_contain_text('claimed by 1 player')
+        page.click('#admAnnClear'); self.wait_il(page, '!il.announce')
+        page.click('#admFreeStop'); expect(page.locator('#admFreeStatus')).to_contain_text('Not running')
+
+        # the log has every action, and never a plaintext code
+        page.click('.adm-tabs a[data-tab=log]')
+        log = self.il(page)['adminlog']
+        actions = [e['action'] for e in log.values()]
+        for a in ['give packs', 'give card', 'ban', 'unban', 'remove from leaderboard', 'reset progress', 'create code',
+                  'announcement', 'free pack for everyone', 'clear announcement', 'stop free pack']:
+            self.assertIn(a, actions)
+        expect(page.locator('.adm-log li')).to_have_count(len(log))
+        self.assertNotIn(code, json.dumps(log)); self.assertNotIn(code2, json.dumps(log))
+        page.screenshot(path=str(SHOTS / 'admin-log.png'))
+
+        # delete a code (confirm)
+        page.click('.adm-tabs a[data-tab=codes]')
+        page.click('.adm-code[data-hash="%s"] button' % h1); page.click('#admConfirmYes')
+        expect(page.locator('#admCodeList .adm-code')).to_have_count(1)
+        self.assertNotIn(h1, self.il(page)['codes'])
+
+        # ban yourself, then look at the site as a normal (banned) player
+        page.goto(self.base + '?demo&admin#/admin/player/demoPlayer01'); page.wait_for_selector('#admBan')
+        page.fill('#admBanReason', 'test ban'); page.click('#admBan'); page.click('#admConfirmYes')
+        expect(page.locator('#admBannedBadge')).to_be_visible()
+        self.grab(page)
+        page.goto(self.base + '?demo#/'); page.wait_for_selector('#view section')
+        expect(page.locator('#banBanner')).to_contain_text('test ban')
+        expect(page.locator('#openBtn')).to_be_disabled(); expect(page.locator('#openBtn')).to_have_text('Account banned')
+        expect(page.locator('nav.main-nav a[data-route=admin]')).to_be_hidden()
+        err = page.evaluate('ILL.game.openPack().then(() => "opened", (e) => e.message)')
+        self.assertIn('banned', err)
+        err = page.evaluate('ILL.store.update({"users/demoPlayer01/profile/name": "Sneaky"}).then(() => "saved", (e) => e.code)')
+        self.assertEqual(err, 'PERMISSION_DENIED')
+        page.fill('#codeInput', 'demo-test-3'); page.click('.code-row button')
+        expect(page.locator('#codeMsg')).to_contain_text('banned')
+
+    def test_7c_admin_phone(self):
+        page = self.open('admin/players', phone=True, query='demo&admin')
+        expect(page.locator('nav.tabs a[data-route=admin]')).to_be_visible()
+        page.wait_for_selector('#admPlayerRows a.adm-row')
+        for route in ['admin', 'admin/players', 'admin/player/bot0004xx', 'admin/codes', 'admin/site', 'admin/log']:
+            page.goto(self.base + '?demo&admin#/' + route); page.wait_for_selector('#admBody > *')
+            page.wait_for_timeout(250)
+            self.assertLessEqual(page.evaluate('document.documentElement.scrollWidth'), 390, 'sideways scroll on ' + route)
+            if route == 'admin/players': page.screenshot(path=str(SHOTS / 'admin-phone.png'))
+            if route == 'admin/player/bot0004xx': page.screenshot(path=str(SHOTS / 'admin-phone-player.png'), full_page=True)
+
+    def test_8_admin_email_not_published(self):
+        """The admin's email may only be in the private-by-design rules inputs/outputs (firebase/*.json) and the tests."""
+        email = build_rules.ADMIN_EMAIL.encode()
+        self.assertIn(b'@', email)
+        bad = []
+        for f in ROOT.rglob('*'):
+            rel = f.relative_to(ROOT).parts
+            if not f.is_file() or rel[0] in ('.git', 'tests') or '__pycache__' in rel: continue
+            if rel[0] == 'firebase' and f.suffix == '.json': continue
+            if email in f.read_bytes().lower(): bad.append('/'.join(rel))
+        self.assertEqual(bad, [])
+        cfg = (ROOT / 'js/config.js').read_text(encoding='utf-8')
+        self.assertIn("adminHash: '%s'" % hashlib.sha256(email).hexdigest(), cfg)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

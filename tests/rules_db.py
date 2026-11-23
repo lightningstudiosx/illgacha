@@ -50,6 +50,7 @@ class RulesDB:
 
     def update(s, base, patch, auth=None, now=0):
         """Multi-path update at `base` (like ref(base).update(patch)). Returns (ok, reason)."""
+        if auth is not None and 'token' not in auth: auth = dict(auth, token={})   # Firebase always has auth.token
         sv = lambda v: now if v == {'.sv': 'timestamp'} else {k: sv(x) for k, x in v.items()} if isinstance(v, dict) else v
         writes = [(split(base) + split(k), sv(copy.deepcopy(v))) for k, v in patch.items()]
         old, new = s.root, copy.deepcopy(s.root)

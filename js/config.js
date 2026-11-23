@@ -16,6 +16,9 @@ window.ILL_CONFIG = {
   packEveryMs: 600000,         // 1 free pack every 10 minutes (must match tools/build_rules.py)
   maxStored: 10,               // up to 10 packs pile up while you are away
   cardsPerPack: 5,
+  // Admin panel: SHA-256 of the owner's lower-cased Google email (the address itself is NOT in the website).
+  // The database rules (tools/build_rules.py + the git-ignored firebase/admin.local.json) are what really decide who is admin.
+  adminHash: 'a75d0916cbd81bf1a0c9a0fad48d9efe251586441c888e2dbd43af9ff3d945ff',
   // Demo mode only (?demo or while the config above is still placeholder). These are SHA-256 hashes of
   // test codes, never real codes. Real codes live only in your private rules (see tools/add_code.py).
   demoCodes: {

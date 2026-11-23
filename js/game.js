@@ -41,6 +41,8 @@
   }
   // Add the matching leaderboard entry (worked out from the state AFTER the patch) and send it.
   async function commit(patch) {
+    const d = store().doc;
+    if (d && d.stats && !d.stats.joined && !(U('stats') in patch)) patch[U('stats/joined')] = NOW;   // saves from before "joined" existed
     const after = ILL.u.applyPatch(JSON.parse(JSON.stringify({ users: { [uid()]: store().doc || {} } })), patch, 0).users[uid()];
     patch['leaderboard/' + uid()] = lbEntry(after);
     await store().update(patch);
@@ -48,10 +50,14 @@
   }
   G.commit = commit;
   G.U = U;
+  G.lbEntry = lbEntry;
+  G.banned = () => !!(ILL.state && ILL.state.banned);
+  const bannedErr = () => new Error('Your account is banned, so it can’t be changed.');
 
   G.openPack = async function () {
     const s = store(), doc = s.doc;
     if (G.busy || !doc || !doc.packs) return null;
+    if (G.banned()) throw bannedErr();
     const ps = G.packState(doc, s.now());
     if (ps.total < 1) throw new Error('No packs yet - the next one is on its way!');
     G.busy = true;
@@ -115,6 +121,24 @@
     G.busy = true;
     try { await commit(patch); } finally { G.busy = false; }
     return true;
+  };
+
+  // "Free pack for everyone" from the admin panel: each player can claim each gift once while it runs.
+  G.freeGift = function () {
+    const fp = ILL.state && ILL.state.freepack, doc = store() && store().doc;
+    if (!fp || !doc || !doc.packs || doc.packs.freeId === fp.id || store().now() >= fp.until || G.banned()) return null;
+    return fp;
+  };
+  G.claimFree = async function () {
+    const fp = G.freeGift(), doc = store().doc;
+    if (!fp || G.busy) return 0;
+    const extra = (doc.packs.extra || 0) + fp.packs;
+    if (extra > 100) throw new Error('You already have lots of bonus packs waiting - open a few first!');
+    G.busy = true;
+    try {
+      await commit({ [U('packs/freeId')]: fp.id, [U('packs/extra')]: extra, [U('packs/granted')]: (doc.packs.granted || 0) + fp.packs });
+    } finally { G.busy = false; }
+    return fp.packs;
   };
 
   ILL.game = G;

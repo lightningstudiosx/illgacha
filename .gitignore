@@ -1,6 +1,10 @@
 # private redeem codes and the rules built with them - never commit these
 firebase/codes.local.json
 firebase/database.rules.with-codes.json
+# the admin email and every rules file generated from it (the repo + site are public)
+firebase/admin.local.json
+firebase/database.rules.json
+firebase/illgacha.rules.json
 # python / editor junk
 __pycache__/
 *.pyc

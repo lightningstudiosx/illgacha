@@ -45,7 +45,7 @@ Your database is shared with your other game, so the rules file in this folder c
 your other game's rules (copied exactly, nothing changed) **plus** the new `illgacha` rules.
 
 1. In the Firebase console click **Build -> Realtime Database**, then the **Rules** tab.
-2. Open `firebase/database.rules.json` from this folder, select everything (Ctrl+A), copy (Ctrl+C).
+2. Run `python -I tools/build_rules.py` (it makes the rules files, which stay on your PC only), then open `firebase/database.rules.json` from this folder, select everything (Ctrl+A), copy (Ctrl+C).
    - If you made secret codes (see "Making redeem codes" below), use
      `firebase/database.rules.with-codes.json` instead.
 3. In the console, click inside the rules box, select everything, and paste (Ctrl+V) to replace it.
@@ -102,10 +102,45 @@ Why not keep codes in the database? Your other game needs the whole database to 
 (`".read": true` at the top), and in Firebase a read permission at the top can't be taken away lower down.
 So anything in the database could be listed by anyone - the rules are the only private place.
 
+## Admin panel
+
+You (and only you) get an extra **Admin** tab when you sign in with your own Google account - the one written in
+`firebase/admin.local.json` (kept only on your PC). Everyone else never sees the tab, and opening `#/admin` just says "Admin only".
+
+**Do this once so it works:** the admin powers live in the new database rules, so **paste the rules again**:
+open `firebase/database.rules.json` (or `firebase/database.rules.with-codes.json` if you made codes with
+`tools/add_code.py` - then run `python -I tools/build_rules.py` first so that file is rebuilt), copy everything, and
+paste it into **Firebase console -> Build -> Realtime Database -> Rules -> Publish**, exactly like step 4.
+Until you do, the Admin tab still shows but every button says "The database said no".
+
+What it can do:
+- **Overview** - number of players, packs opened, cards collected, newest and most active players.
+- **Players** - search by nickname or player id, sort, open a player to see their collection.
+  On a player you can **give bonus packs**, **give any card** (search by name or ILL rank, optional holo),
+  **remove them from the leaderboard**, **ban / unban** (a banned player sees a message and the database refuses
+  all their changes) and **reset their progress** (asks first; can't be undone).
+- **Codes** - make redeem codes right in the site: type one or press **Generate** (recommended), pick 1-10 packs,
+  an optional use limit and expiry. Only the code's fingerprint is saved, but the database can be read by anyone,
+  so always use long random codes (at least 8 characters; generated ones are 16). The code is shown **once** -
+  copy it then. Codes from `tools/add_code.py` keep working too.
+- **Site** - an **announcement** banner at the top of every page (pick a colour), and a **free pack for everyone**
+  that each player can claim once while it runs.
+- **Log** - every admin action is written to `illgacha/adminlog` (only you can add to it).
+
+Try it without touching the real database: open `https://illgacha.kaifun.fun/?demo&admin` (demo mode pretending
+you are the admin; nothing leaves your browser).
+
+The website never contains your email - only its SHA-256 fingerprint (`adminHash` in `js/config.js`). The real
+check is in the rules: only a signed-in Google account with that exact, verified email can do admin writes.
+`firebase/admin.local.json` (the email) and every generated rules file are git-ignored, so they exist only on your PC
+and never reach the public repository. If you ever change admin email, edit `firebase/admin.local.json`, run `python -I tools/build_rules.py`, update
+`adminHash` (SHA-256 of the lower-case email) and paste the rules again.
+
 ## If something goes wrong
 
 - **"Sign-in failed" / popup closes at once:** check step 2 (authorized domain) and that Google is enabled (step 1).
 - **Popup blocked on a phone:** the site falls back to a full-page Google sign-in automatically. If Safari still
   refuses, try again in Chrome or allow popups for the site.
 - **"Permission denied" when opening packs:** the rules from step 4 were not published, or an old copy was pasted.
+- **Admin buttons say "The database said no":** paste the newest rules again (see "Admin panel").
 - **Still in demo mode after step 3:** a `PASTE_..._HERE` value is left in `js/config.js`, or the address has `?demo`.

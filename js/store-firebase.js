@@ -14,7 +14,7 @@
     const cfg = window.ILL_CONFIG;
     const base = 'https://www.gstatic.com/firebasejs/' + cfg.firebaseSdk + '/';
     let fb = null, auth = null, db = null, offset = 0, doc = null, docRef = null, ready = false;
-    const listeners = [];
+    const listeners = [], waiting = [];
     const emit = () => listeners.forEach((f) => f());
     const isPhone = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
@@ -38,12 +38,19 @@
         fb = window.firebase;
         fb.initializeApp(cfg.firebase);
         auth = fb.auth(); db = fb.database();
+        waiting.splice(0).forEach((f) => f());
         db.ref('.info/serverTimeOffset').on('value', (s) => { offset = s.val() || 0; });
         auth.getRedirectResult().catch((e) => ILL.u.toast('Sign-in failed: ' + (e.message || e.code), 'bad'));
         auth.onAuthStateChanged((u) => {
           if (docRef) { docRef.off(); docRef = null; }
           doc = null;
-          S.user = u ? { uid: u.uid, name: u.displayName || 'Player' } : null;   // the name is only a suggestion, never saved as-is
+          S.user = u ? { uid: u.uid, name: u.displayName || 'Player', isAdmin: false } : null;   // the name is only a suggestion, never saved as-is
+          // Admin tab: compare the SHA-256 of the verified email with config (the email itself is never kept or saved).
+          if (u && u.email && u.emailVerified && cfg.adminHash) {
+            ILL.u.sha256(u.email.trim().toLowerCase()).then((hash) => {
+              if (S.user && S.user.uid === u.uid && hash === cfg.adminHash) { S.user.isAdmin = true; emit(); }
+            }).catch(() => {});
+          }
           ready = !u;
           if (u) {
             docRef = db.ref('illgacha/users/' + u.uid);
@@ -67,6 +74,20 @@
         }
       },
       signOut: () => auth.signOut(),
+      // Read once / keep watching something under illgacha/ (the whole database is public to read).
+      async get(path, opts) {
+        if (!db) throw new Error('Not connected yet - try again in a moment.');
+        let q = db.ref('illgacha/' + path);
+        if (opts && opts.last) q = q.orderByKey().limitToLast(opts.last);
+        return (await q.once('value')).val();
+      },
+      watch(path, cb) {
+        let ref = null, off = false;
+        const fn = (snap) => cb(snap.val());
+        const go = () => { if (off) return; ref = db.ref('illgacha/' + path); ref.on('value', fn, () => cb(null)); };
+        if (db) go(); else waiting.push(go);
+        return () => { off = true; if (ref) ref.off('value', fn); };
+      },
       update(patch) {
         const out = {};
         for (const k in patch) out[k] = conv(patch[k]);

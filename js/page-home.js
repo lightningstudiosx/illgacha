@@ -94,8 +94,9 @@
       count.textContent = '';
       count.append(h('b', String(st.total)), ' pack' + (st.total === 1 ? '' : 's') + ' ready');
       if (st.extra) count.append(h('small', ' (incl. ' + st.extra + ' bonus)'));
-      openBtn.disabled = st.total < 1;
-      openBtn.textContent = st.total < 1 ? 'Next pack in ' + clock(st.nextAt - s.now()) : 'Open a pack';
+      const banned = ILL.game.banned();
+      openBtn.disabled = st.total < 1 || banned;
+      openBtn.textContent = banned ? 'Account banned' : st.total < 1 ? 'Next pack in ' + clock(st.nextAt - s.now()) : 'Open a pack';
       packArt.classList.toggle('empty', st.total < 1);
     }
     tick();
