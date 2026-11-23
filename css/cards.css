@@ -1,0 +1,70 @@
+/* ILL Gacha - card faces, rarity frames, holo shine, card backs */
+.card { --rc: #97a3bd; position: relative; display: block; width: 100%; aspect-ratio: 5 / 7; padding: 0; margin: 0; border: 0; text-align: left; color: var(--text);
+  font: inherit; border-radius: 7% / 5%; container-type: inline-size; cursor: default; isolation: isolate;
+  background: var(--rc); box-shadow: 0 6px 18px rgba(0, 0, 0, .45); transition: transform .18s, box-shadow .18s; }
+button.card { cursor: pointer; }
+button.card:hover { transform: translateY(-4px) rotate(-.6deg); box-shadow: 0 14px 30px rgba(0, 0, 0, .55), 0 0 22px color-mix(in srgb, var(--rc) 55%, transparent); }
+.card.r-common { --rc: #8f9ab3; }
+.card.r-uncommon { --rc: #33e08a; }
+.card.r-rare { --rc: #3a9bff; }
+.card.r-epic { --rc: #b65cff; }
+.card.r-legendary { --rc: #ffb52e; }
+.card.r-mythic { --rc: #ff2f6d; }
+.card.r-rare, .card.r-epic { box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 0 14px color-mix(in srgb, var(--rc) 40%, transparent); }
+.card.r-legendary { background: linear-gradient(135deg, #fff1b8, #ffb52e 30%, #b86b00 60%, #ffd76a); box-shadow: 0 0 22px rgba(255, 181, 46, .45); }
+.card.r-mythic { background: conic-gradient(from var(--ang, 0deg), #ff2f6d, #ff2fb3, #8a3dff, #2ef2ff, #ff2f6d); animation: spin 4s linear infinite; box-shadow: 0 0 26px rgba(255, 47, 109, .55); }
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes spin { to { --ang: 360deg; } }
+.card-in { position: absolute; inset: 1.6cqw; border-radius: 6cqw; overflow: hidden; display: flex; flex-direction: column; gap: 2.6cqw; padding: 5cqw;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--rc) 26%, #120e22) 0%, #0d0a1b 46%, #08060f 100%); }
+.card-in::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px); }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 2cqw; }
+.card-top .rank { font: 700 11cqw/1 var(--display); letter-spacing: -.02em; }
+.card-top .rar { font: 700 5.6cqw/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--rc); padding: 1.6cqw 3cqw; border-radius: 99px;
+  background: color-mix(in srgb, var(--rc) 16%, transparent); border: .5cqw solid color-mix(in srgb, var(--rc) 55%, transparent); white-space: nowrap; }
+.card-art { position: relative; aspect-ratio: 16 / 9; border-radius: 3.4cqw; overflow: hidden; background: #000; flex: none;
+  box-shadow: 0 0 0 .6cqw color-mix(in srgb, var(--rc) 60%, #000); }
+.card-art img, .card-art svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-text { font: 700 22px var(--display); fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .6); stroke-width: 4px; }
+.card-name { font: 700 9cqw/1.12 var(--display); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; margin-top: 1cqw; }
+.card-by { font-size: 6cqw; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-best { font-size: 5.6cqw; line-height: 1.3; color: #cfc8f2; background: rgba(255, 255, 255, .05); border-radius: 2.4cqw; padding: 2cqw 3cqw;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.card-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 2cqw; }
+.status { font: 700 5.4cqw/1 var(--display); letter-spacing: .1em; padding: 1.8cqw 2.8cqw; border-radius: 2cqw; }
+.status.unbeaten { color: #ffd0dc; background: rgba(255, 47, 109, .18); border: .5cqw solid rgba(255, 47, 109, .6); }
+.status.cleared { color: #c9ffe4; background: rgba(51, 224, 138, .14); border: .5cqw solid rgba(51, 224, 138, .5); }
+.fps { font: 700 5.6cqw/1 var(--display); color: var(--muted); }
+.card .count { position: absolute; right: 3cqw; top: 31cqw; z-index: 3; font: 700 8cqw/1 var(--display); padding: 1.6cqw 3.2cqw; border-radius: 99px;
+  background: #0b0918; border: .6cqw solid var(--rc); color: var(--text); }
+.card .new { position: absolute; left: -2cqw; top: -2cqw; z-index: 3; font: 700 6.4cqw/1 var(--display); padding: 2cqw 3.4cqw; border-radius: 3cqw;
+  background: var(--cyan); color: #04121a; transform: rotate(-8deg); box-shadow: 0 0 12px rgba(46, 242, 255, .7); }
+
+/* holo: a rainbow sheen that follows the pointer (and drifts on its own) */
+.holo-layer { position: absolute; inset: 1.6cqw; border-radius: 6cqw; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .75;
+  background:
+    radial-gradient(circle at var(--mx, 30%) var(--my, 20%), rgba(255, 255, 255, .55), transparent 38%),
+    linear-gradient(115deg, transparent 15%, rgba(255, 47, 179, .55) 30%, rgba(46, 242, 255, .55) 45%, rgba(255, 238, 90, .5) 58%, rgba(138, 61, 255, .5) 70%, transparent 85%);
+  background-size: 100% 100%, 260% 260%; animation: holo 5s ease-in-out infinite alternate; }
+.card.holo::before { content: 'HOLO'; position: absolute; z-index: 3; left: 50%; bottom: -3cqw; transform: translateX(-50%); font: 700 5.4cqw/1 var(--display); letter-spacing: .2em;
+  padding: 1.6cqw 3.4cqw; border-radius: 99px; color: #120a1f; background: linear-gradient(90deg, #ff9be0, #9ff9ff, #fff59b, #c7a2ff); }
+@keyframes holo { from { background-position: 0 0, 0% 50%; } to { background-position: 0 0, 100% 50%; } }
+
+/* not collected yet (Index) */
+.card.locked { filter: grayscale(1) brightness(.5) contrast(.9); }
+.card.locked:hover { filter: grayscale(.6) brightness(.75); }
+.card .lock { position: absolute; z-index: 3; left: 50%; top: 22cqw; transform: translateX(-50%); width: 18cqw; height: 18cqw; display: grid; place-items: center;
+  border-radius: 50%; background: rgba(7, 5, 15, .8); border: .8cqw solid rgba(255, 255, 255, .5); font: 700 11cqw/1 var(--display); color: #fff; }
+
+/* card back */
+.card.back { --rc: #2a2350; background: linear-gradient(135deg, #2ef2ff, #8a3dff 50%, #ff2fb3); }
+.card.back .card-in { align-items: center; justify-content: center; gap: 4cqw;
+  background: radial-gradient(circle at 50% 42%, #251c4d, #0b0818 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .04) 0 4cqw, transparent 4cqw 8cqw); }
+.card.back .logo { width: 46cqw; height: auto; filter: drop-shadow(0 0 4cqw rgba(255, 47, 179, .6)); }
+.back-txt { font: 700 8cqw/1 var(--display); letter-spacing: .3em; color: #d8d2ff; }
+.card.back.hint-epic { box-shadow: 0 0 30px rgba(182, 92, 255, .8); }
+.card.back.hint-legendary { box-shadow: 0 0 36px rgba(255, 181, 46, .9); }
+.card.back.hint-mythic { box-shadow: 0 0 44px rgba(255, 47, 109, 1); animation: hum .18s infinite alternate; }
+@keyframes hum { to { transform: translate(1px, -1px) rotate(.4deg); } }

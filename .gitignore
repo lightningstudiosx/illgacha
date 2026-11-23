@@ -1,0 +1,10 @@
+# private redeem codes and the rules built with them - never commit these
+firebase/codes.local.json
+firebase/database.rules.with-codes.json
+# python / editor junk
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

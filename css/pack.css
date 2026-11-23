@@ -1,0 +1,70 @@
+/* ILL Gacha - the pack and the opening show */
+.pack { --pw: 230px; position: relative; width: var(--pw); aspect-ratio: 5 / 8; container-type: inline-size; filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .6)); user-select: none; touch-action: none; }
+.pack-top, .pack-body { position: absolute; left: 0; right: 0; overflow: hidden;
+  background: linear-gradient(135deg, #ff2fb3 0%, #8a3dff 42%, #2a7bff 70%, #2ef2ff 100%); }
+.pack-top { top: 0; height: 15%; border-radius: 10px 10px 0 0; display: grid; place-items: center;
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 95% 100%, 90% 78%, 85% 100%, 80% 78%, 75% 100%, 70% 78%, 65% 100%, 60% 78%, 55% 100%, 50% 78%, 45% 100%, 40% 78%, 35% 100%, 30% 78%, 25% 100%, 20% 78%, 15% 100%, 10% 78%, 5% 100%, 0 78%);
+  background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, .16) 0 3px, transparent 3px 9px), linear-gradient(135deg, #ff2fb3, #8a3dff); }
+.pack-top span { font: 700 4.8cqw var(--display); letter-spacing: .3em; color: rgba(255, 255, 255, .85); margin-top: -2.6cqw; }
+.pack-body { top: 13.5%; bottom: 0; border-radius: 0 0 12px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3.4cqw; padding: 8cqw 6cqw 11cqw;
+  clip-path: polygon(0 1.6%, 5% 0, 10% 1.6%, 15% 0, 20% 1.6%, 25% 0, 30% 1.6%, 35% 0, 40% 1.6%, 45% 0, 50% 1.6%, 55% 0, 60% 1.6%, 65% 0, 70% 1.6%, 75% 0, 80% 1.6%, 85% 0, 90% 1.6%, 95% 0, 100% 1.6%, 100% 100%, 0 100%); }
+.pack-body::before { content: ''; position: absolute; inset: 0; background:
+  repeating-linear-gradient(115deg, rgba(255, 255, 255, .07) 0 2px, transparent 2px 14px),
+  radial-gradient(circle at 50% 38%, rgba(7, 5, 15, .0), rgba(7, 5, 15, .35) 70%); }
+.pack-body::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .25) 0 4px, rgba(255, 255, 255, .15) 4px 8px); }
+.pack-shine { position: absolute; inset: -40%; background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .45) 50%, transparent 60%); animation: shine 3.2s ease-in-out infinite; }
+@keyframes shine { 0% { transform: translateX(-60%); } 60%, 100% { transform: translateX(60%); } }
+.pack .logo { position: relative; flex: none; width: 46cqw; height: auto; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, .45)); }
+.pack-title { position: relative; font: 700 12.4cqw/1 var(--display); white-space: nowrap; letter-spacing: .08em; text-shadow: 2px 0 var(--pink), -2px 0 var(--cyan), 0 4px 18px rgba(0, 0, 0, .5); }
+.pack-sub { position: relative; font: 700 4.3cqw var(--display); letter-spacing: .22em; color: rgba(255, 255, 255, .85); text-align: center; }
+.pack-n { position: relative; font: 700 5.2cqw var(--display); letter-spacing: .12em; background: rgba(7, 5, 15, .55); padding: 2.2cqw 5.2cqw; border-radius: 99px; margin-top: 2.6cqw; white-space: nowrap; }
+.pack.glow-mythic { filter: drop-shadow(0 0 28px rgba(255, 47, 109, .9)); animation: hum .12s infinite alternate; }
+.pack.glow-legendary { filter: drop-shadow(0 0 24px rgba(255, 181, 46, .85)); }
+.pack.torn .pack-top { animation: tearoff .6s cubic-bezier(.3, .7, .4, 1) forwards; }
+.pack.torn .pack-body { animation: drop .55s .18s ease-in forwards; }
+@keyframes tearoff { to { transform: translate(150px, -190px) rotate(32deg); opacity: 0; } }
+@keyframes drop { to { transform: translateY(70px) scale(.92); opacity: 0; } }
+
+/* home pack button */
+.pack-hit { background: none; border: 0; padding: 0; cursor: pointer; animation: float 3.4s ease-in-out infinite; border-radius: 16px; }
+.pack-hit:hover .pack { transform: rotate(-3deg) scale(1.03); }
+.pack-hit .pack { transition: transform .25s; }
+.pack-hit.empty { filter: grayscale(.7) brightness(.6); animation: none; }
+@keyframes float { 50% { transform: translateY(-10px) rotate(1deg); } }
+
+/* the opening overlay */
+.pack-overlay { --cw: min(280px, 72vw, 44vh); position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: 1fr auto auto; gap: 12px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); overflow: hidden; outline: none; animation: fade .25s; }
+.po-bg { position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 40%, #2a1650 0%, #0b0716 55%, #050309 100%); }
+.po-bg::after { content: ''; position: absolute; inset: -50%; background: conic-gradient(from 0deg, transparent, rgba(46, 242, 255, .07), transparent 20%, rgba(255, 47, 179, .07), transparent 40%);
+  animation: rot 14s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.po-stage { position: relative; display: grid; place-items: center; min-height: 0; }
+.po-stage .pack { --pw: min(260px, 64vw, 40vh); cursor: grab; animation: popin .45s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes popin { from { transform: scale(.6) translateY(40px); opacity: 0; } }
+.po-stack { position: relative; width: var(--cw); aspect-ratio: 5 / 7; background: none; border: 0; padding: 0; cursor: pointer; grid-area: 1 / 1; }
+.stack-card { position: absolute; inset: 0; transform: translate(calc(var(--i) * 5px), calc(var(--i) * -5px)) rotate(calc(var(--i) * 1.6deg)); animation: deal .4s backwards; animation-delay: calc(var(--i) * 60ms); }
+@keyframes deal { from { transform: translateY(80px) scale(.8); opacity: 0; } }
+.flip { position: relative; width: var(--cw); aspect-ratio: 5 / 7; perspective: 1200px; grid-area: 1 / 1; z-index: 2; cursor: pointer; }
+.flip-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3, 1.3, .5, 1); }
+.flip.open .flip-in { transform: rotateY(180deg) scale(1.06); }
+.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.f-front { transform: rotateY(180deg); }
+.flip.open.r-epic .f-front .card, .flip.open.r-legendary .f-front .card, .flip.open.r-mythic .f-front .card { box-shadow: 0 0 60px color-mix(in srgb, var(--rc) 80%, transparent); }
+.rar-pop { position: absolute; left: 50%; top: -14px; transform: translate(-50%, -100%); font: 700 clamp(18px, 4vw, 30px)/1 var(--display); letter-spacing: .14em;
+  white-space: nowrap; text-shadow: 0 0 18px currentColor; opacity: 0; }
+.flip.open .rar-pop { animation: pop .5s .35s forwards; }
+@keyframes pop { from { opacity: 0; transform: translate(-50%, -60%) scale(.6); } to { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
+.spark { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border-radius: 50%; z-index: 3; pointer-events: none; box-shadow: 0 0 10px currentColor;
+  animation: spark .85s ease-out forwards; }
+@keyframes spark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+.po-row { display: flex; justify-content: center; gap: 10px; min-height: calc(min(92px, 17vw) * 1.4); }
+.po-row .card { width: min(92px, 17vw); flex: none; animation: popin .35s; }
+.po-ctrl { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+.po-hint { width: 100%; text-align: center; margin: 0; color: var(--muted); font: 700 14px var(--display); letter-spacing: .06em; }
+.pack-overlay.shake { animation: shake .45s; }
+@keyframes shake { 20% { transform: translate(-8px, 4px); } 40% { transform: translate(7px, -5px); } 60% { transform: translate(-5px, 3px); } 80% { transform: translate(3px, -2px); } }
+.pack-overlay.flash-mythic::after, .pack-overlay.flash-legendary::after { content: ''; position: absolute; inset: 0; pointer-events: none; animation: flash .7s forwards; }
+.pack-overlay.flash-mythic::after { background: radial-gradient(circle, rgba(255, 47, 109, .65), transparent 70%); }
+.pack-overlay.flash-legendary::after { background: radial-gradient(circle, rgba(255, 181, 46, .55), transparent 70%); }
+@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
